@@ -36,13 +36,13 @@ class RotationDMP():
             psi = np.exp(-self.h * (xj - self.c)**2)
             return self.Dp.dot(self.w.dot(psi) / psi.sum() * xj)
 
-        self.etaDot = self.alpha*(self.beta*2*np.quaternion.log(self.gq*np.quaternion.conjugate(self.q))-self.eta)+np.quaternion(0,fp(x)[0],fp(x)[1],fp(x)[2])
+        self.etaDot = (self.alpha*(self.beta*2*np.quaternion.log(self.gq*np.quaternion.conjugate(self.q))-self.eta)+np.quaternion(0,fp(x)[0],fp(x)[1],fp(x)[2]))/tau
         
         # Integrate acceleration to obtain angular velocity
         self.eta += self.etaDot * dt
 
         # Obtain rotation from angular velocity
-        self.q = np.quaternion.exp((dt/2)*self.eta/tau)*self.q
+        self.q = (np.quaternion.exp((dt/2)*self.eta/tau)*self.q)
 
         return self.q, self.eta, self.etaDot
 
@@ -108,6 +108,7 @@ class RotationDMP():
         for i in range(len(q)-1):
             #d_q.append(np.quaternion(self.angular_vel(q[i],q[i+1],dt[i])[0],self.angular_vel(q[i],q[i+1],dt[i])[1],self.angular_vel(q[i],q[i+1],dt[i])[2],self.angular_vel(q[i],q[i+1],dt[i])[3]))
             d_q.append(2*np.quaternion.log(q[i+1]*np.quaternion.conjugate(q[i]))/dt[i])
+        #d_q=quaternion.calculus.fd_derivative(q,dt)
         for i in range(len(d_q)-1):
             dd_q.append((d_q[i+1]-d_q[i])/dt[i])
         dd_q.append(np.quaternion(0, 0, 0, 0))
