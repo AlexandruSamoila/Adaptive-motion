@@ -39,7 +39,7 @@ class PositionDMP():
         # TODO: Implement the transformation system differential equation for the acceleration, given that you know the
         # values of the following variables:
         # self.alpha, self.beta, self.gp, self.p, self.dp, tau, x
-        self.ddp = self.alpha*(self.beta*(np.array(self.gp)-np.array(self.p))-self.dp*tau)+fp(x)
+        self.ddp = (self.alpha*(self.beta*(np.array(self.gp)-np.array(self.p))-self.dp*tau)+fp(x))/tau**2
         
 
         # Integrate acceleration to obtain velocity
@@ -101,13 +101,12 @@ class PositionDMP():
 
         # Set up system of equations to solve for weights
         def features(xj):
-            psi = np.exp(-0.5*self.h * (xj - self.c)**2)
+            psi = np.exp(-self.h * (xj - self.c)**2)
             return xj * psi / psi.sum()
 
         def forcing(j):
             return Dp_inv.dot(tau**2 * dd_p[j]
                 - self.alpha * (self.beta * (self.gp - p[j]) - tau * d_p[j]))
-        print(features(x[5]))
         A = np.stack(features(xj) for xj in x)
         f = np.stack(forcing(j) for j in range(len(ts)))
 

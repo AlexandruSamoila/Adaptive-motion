@@ -65,7 +65,7 @@ if __name__ == '__main__':
     #demo_q = euler2quat(demo_r)
 
 
-    N = 200 # TODO: Try changing the number of basis functions to see how it affects the output.
+    N = 270 # TODO: Try changing the number of basis functions to see how it affects the output.
     dmpP = PositionDMP(n_bfs=N, alpha=48.0)
     dmpP.train(demo_p, t, tau)
     
@@ -80,13 +80,13 @@ if __name__ == '__main__':
     # TODO: Try setting a different starting point for the dmp:
     # dmp.p0 = [x, y, z]
     
-    dmpP.p0=[0.341529, 0.121866, 0.3000988]
+    #dmpP.p0=[0.341529, 0.121866, 0.3000988]
     #dmpR.q0=[]
     
     # TODO: ...or a different goal point:
     # dmp.g0 = [x, y, z]\
         
-    dmpP.gp=[0.1, 0.2, 0.469289]
+    #dmpP.gp=[0.1, 0.2, 0.469289]
     #dmp.g0=[0.36, 0.22, 0.469289]
     # TODO: ...or a different time constant:
     #tau=12
@@ -108,38 +108,38 @@ if __name__ == '__main__':
       dmp_q_list[n] = [arr[0],arr[1],arr[2],arr[3]]
     
     # dmp_q_list=np.zeros((len(dmp_q)-1,4))
-    # for d in range(len(dmp_q)-1):
+    # for d,dm in enumerate(dmp_q):
     #        dmp_q_list[d]=[dmp_q[d].w,dmp_q[d].x,dmp_q[d].y,dmp_q[d].z]
     
    
-    # 2D plot the DMP against the original demonstration
-    # fig1, axs = plt.subplots(3, 1, sharex=True)
-    # axs[0].plot(t, demo_p[:, 0], label='Demonstration')
-    # axs[0].plot(t, dmp_p[:, 0], label='DMP')
-    # axs[0].set_xlabel('t (s)')
-    # axs[0].set_ylabel('X (m)')
+    #2D plot the DMP against the original demonstration
+    fig1, axs = plt.subplots(3, 1, sharex=True)
+    axs[0].plot(t, demo_p[:, 0], label='Demonstration')
+    axs[0].plot(t, dmp_p[:, 0], label='DMP')
+    axs[0].set_xlabel('t (s)')
+    axs[0].set_ylabel('X (m)')
 
-    # axs[1].plot(t, demo_p[:, 1], label='Demonstration')
-    # axs[1].plot(t, dmp_p[:, 1], label='DMP')
-    # axs[1].set_xlabel('t (s)')
-    # axs[1].set_ylabel('Y (m)')
+    axs[1].plot(t, demo_p[:, 1], label='Demonstration')
+    axs[1].plot(t, dmp_p[:, 1], label='DMP')
+    axs[1].set_xlabel('t (s)')
+    axs[1].set_ylabel('Y (m)')
 
-    # axs[2].plot(t, demo_p[:, 2], label='Demonstration')
-    # axs[2].plot(t, dmp_p[:, 2], label='DMP')
-    # axs[2].set_xlabel('t (s)')
-    # axs[2].set_ylabel('Z (m)')
-    # axs[2].legend()
+    axs[2].plot(t, demo_p[:, 2], label='Demonstration')
+    axs[2].plot(t, dmp_p[:, 2], label='DMP')
+    axs[2].set_xlabel('t (s)')
+    axs[2].set_ylabel('Z (m)')
+    axs[2].legend()
 
-    # # 3D plot the DMP against the original demonstration
-    # fig2 = plt.figure(2)
-    # ax = plt.axes(projection='3d')
-    # ax.plot3D(demo_p[:, 0], demo_p[:, 1], demo_p[:, 2], label='Demonstration')
-    # ax.plot3D(dmp_p[:, 0], dmp_p[:, 1], dmp_p[:, 2], label='DMP')
-    # ax.set_xlabel('X')
-    # ax.set_ylabel('Y')
-    # ax.set_zlabel('Z')
-    # ax.legend()
-    # plt.show()
+    # 3D plot the DMP against the original demonstration
+    fig2 = plt.figure(2)
+    ax = plt.axes(projection='3d')
+    ax.plot3D(demo_p[:, 0], demo_p[:, 1], demo_p[:, 2], label='Demonstration')
+    ax.plot3D(dmp_p[:, 0], dmp_p[:, 1], dmp_p[:, 2], label='DMP')
+    ax.set_xlabel('X')
+    ax.set_ylabel('Y')
+    ax.set_zlabel('Z')
+    ax.legend()
+    plt.show()
     
     # 2D plot the DMP against the original demonstration
     fig3, axsq = plt.subplots(4, 1, sharex=True)
