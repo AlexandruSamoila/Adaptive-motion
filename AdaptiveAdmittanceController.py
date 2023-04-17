@@ -1,13 +1,7 @@
 class Ada_con():
     
     def __init__(self, dof, tr, t):
-
-        import time
-        from datetime import datetime
-        import itertools
-        import numpy.random as npr
         import numpy as np
-        import matplotlib.pyplot as plt
         #from pDMP_functions import pDMP
 
         # Number of learning trials
@@ -58,6 +52,10 @@ class Ada_con():
         self.tau_collect = np.zeros((self.nt, self.dof, self.samples))
         self.ks_collect = np.zeros((self.nt, self.dof, self.samples))
         self.kd_collect = np.zeros((self.nt, self.dof, self.samples))
+        self.pos_des_collect = np.zeros((self.nt, self.dof, self.samples))
+        self.vel_des_collect = np.zeros((self.nt, self.dof, self.samples))
+        self.v_collect = np.zeros((self.nt, self.dof, self.samples))
+
 
         # Controller output
         self.tau = np.zeros(self.dof)
@@ -66,9 +64,15 @@ class Ada_con():
         self.ks = np.zeros(self.dof)
         self.kd = np.zeros(self.dof)
 
+        # Feedforward term
+        self.v = np.zeros(self.dof)
+
         # Adaptation rates for stiffness and damping
-        self.qs = 5 # Value chosen arbitrarily
-        self.qd = 5 # Value chosen arbitrarily
+        self.qs = 3 # Value chosen arbitrarily
+        self.qd = 2.6 # Value chosen arbitrarily
+
+        # Adaptation rate for feedforward term
+        self.qv = 1.5 # Value chosen arbitrarily
 
         # Tracking error coefficient
         self.gamma = 2 # Value chosen arbitrarily
@@ -86,12 +90,7 @@ class Ada_con():
         '''
             Generate position error
         '''
-        import time
-        from datetime import datetime
-        import itertools
-        import numpy.random as npr
         import numpy as np
-        import matplotlib.pyplot as plt
 
         self.pos_diff = np.subtract(self.pos, self.pos_des)
     
@@ -99,12 +98,7 @@ class Ada_con():
         '''
             Generate velocity error
         '''
-        import time
-        from datetime import datetime
-        import itertools
-        import numpy.random as npr
         import numpy as np
-        import matplotlib.pyplot as plt
 
         self.vel_diff = np.subtract(self.vel, self.vel_des)
         #print("Velocity error: ", self.vel_diff)
@@ -122,13 +116,8 @@ class Ada_con():
         '''
             Simple mass-spring-damper system for simulation of controller
         '''
-        import time
-        from datetime import datetime
-        import itertools
-        import numpy.random as npr
         import numpy as np
-        import matplotlib.pyplot as plt
-
+        
         self.spring_force = self.spring * self.pos
         self.damper_force = self.damper * self.vel
         self.noise = np.random.normal(0, 0.2, self.dof) # Simulate sensor noise
@@ -179,16 +168,11 @@ class Ada_con():
             self.pos[i + 3] = self.rot[i]
             self.vel[i + 3] = self.drot[i]
 
-    def iter_learn(self, pos, rot, vel_p, vel_r):
+    def iter_learn(self):
         '''
             Update gains iteratively through trials
         '''
-        import time
-        from datetime import datetime
-        import itertools
-        import numpy.random as npr
         import numpy as np
-        import matplotlib.pyplot as plt
 
         self.counter = 0
         
@@ -203,6 +187,7 @@ class Ada_con():
 
             # Set initial values for simple simulation of mass-spring-damper system
             self.pos = np.array([1, 1, 1, 1, 1, 1])
+            #self.pos = np.zeros(self.dof)
             self.vel = np.zeros(self.dof)
             #self.vel = np.array([1, 1, 1, 1, 1, 1])
             self.mass = 1
@@ -218,10 +203,19 @@ class Ada_con():
 
                 # Generate some motion for self.pos_des and self.vel_des!
                 self.pos_des = np.cos(self.rad * j)
+                '''
+                self.pos_des[0] = np.cos(self.rad * j)
+                self.pos_des[1] = np.cos(self.rad * j)
+                self.pos_des[2] = np.cos(self.rad * j)
+                self.pos_des[3] = np.cos(self.rad * j)
+                self.pos_des[4] = np.cos(self.rad * j)
+                self.pos_des[5] = np.cos(self.rad * j)
+                '''
                 self.vel_des = (self.pos_des - self.pos_old) / self.dt
 
-                self.pos_des[0],self.pos_des[1],self.pos_des[2] = pos[j, 0],pos[j, 1],pos[j, 2] 
-                self.vel_des[0],self.vel_des[1],self.vel_des[2] = vel_p[j, 0],vel_p[j, 1],vel_p[j, 2] 
+                #self.pos_des[0],self.pos_des[1],self.pos_des[2] = pos[j, 0],pos[j, 1],pos[j, 2] 
+                #self.vel_des[0],self.vel_des[1],self.vel_des[2] = vel_p[j, 0],vel_p[j, 1],vel_p[j, 2] 
+                
                 # Apparently a huge desired velocity for the first sample
                 # --> very huge velocity error --> program terminates
                 # Setting the desired velocity at sample 0 to 0 to avoid this
@@ -242,17 +236,20 @@ class Ada_con():
                 if i == 0:
                     self.ks = self.qs * self.tra_diff * self.pos_diff * g
                     self.kd = self.qd * self.tra_diff * self.vel_diff * g
+                    self.v = self.qv * self.tra_diff * g
                     #print("Spring: ", self.ks)
                     #print("Damper: ", self.kd)
                     #print("Debugging: ", self.vel_diff)
                 else:
                     self.ks = self.ks_collect[i - 1][:, j] + self.qs * self.tra_err_collect[i - 1][:, j] * self.pos_err_collect[i - 1][:, j] * g
                     self.kd = self.kd_collect[i - 1][:, j] + self.qd * self.tra_err_collect[i - 1][:, j] * self.vel_err_collect[i - 1][:, j] * g
+                    self.v = self.v_collect[i - 1][:, j] + self.qv * self.tra_err_collect[i - 1][:, j] * g
                     #print("New spring: ", self.ks)
                     #print("New damper: ", self.kd)
                 
                 # Combine gains into torque - check paper for correct formula!
-                self.tau = -(self.ks * self.pos_diff + self.kd * self.vel_diff)
+                self.tau = -(self.ks * self.pos_diff + self.kd * self.vel_diff) - self.v
+                #self.tau = -(self.ks * self.pos_diff + self.kd * self.vel_diff)
                 # Tau works "fine" with only spring gain
                 #self.tau = -(self.ks * self.pos_diff)
                 # Code does not run with only damper gain...
@@ -270,6 +267,9 @@ class Ada_con():
                     self.tau_collect[i][k][j] = self.tau[k]
                     self.ks_collect[i][k][j] = self.ks[k]
                     self.kd_collect[i][k][j] = self.kd[k]
+                    self.v_collect[i][k][j] = self.v[k]
+                    #self.pos_des_collect[i][k][j] = self.pos_des[k]
+                    #self.vel_des_collect[i][k][j] = self.vel_des[k]
                 
                 self.pos_old = self.pos_des
 
@@ -277,13 +277,14 @@ if __name__ == '__main__':
     import matplotlib.pyplot as plt
     import numpy as np
     
-    tr = 10 # Number of trials
+    tr = 30 # Number of trials
     t = 10 # Total time of each trial
     t_interval = np.arange(0, t + 0.05, 0.05)
 
     ac = Ada_con(dof=6, tr=tr, t=t)
     ac.iter_learn()
     
+    #print(ac.v_collect)
     #print(np.shape(ac.pos_err_collect))
     #print(ac.ks_collect[0])
     #print(ac.ks_collect[0][:,0])
@@ -305,14 +306,15 @@ if __name__ == '__main__':
     #print("Gamma: ", ac.gamma)
     '''
 
-    print(np.shape(ac.pos_collect))
+    #print(np.shape(ac.pos_collect))
+    '''
     # Plot position error of first and last trial
     fig, axs = plt.subplots(2)
     fig.suptitle('Simulation')
     axs[0].plot(t_interval, ac.pos_err_collect[0][0])
     axs[1].plot(t_interval, ac.pos_err_collect[tr - 1][0])
     plt.show()
-
+    '''
     '''
     # Plot velocity error of first and last trial
     fig, axs = plt.subplots(2)
@@ -329,6 +331,16 @@ if __name__ == '__main__':
     axs[1].plot(t_interval, ac.tau_collect[tr - 1][0])
     plt.show()
     '''
+    # Plot position of system of first and last trial
+
+    #print(ac.pos_collect)
+    
+    fig, axs = plt.subplots(2)
+    fig.suptitle('Simulation')
+    axs[0].plot(t_interval, ac.pos_collect[0][0])
+    axs[1].plot(t_interval, ac.pos_collect[tr - 1][0])
+    plt.show()
+    
 
     #plt.plot(t_interval, ac.pos_collect[0][0])
     #plt.show()
