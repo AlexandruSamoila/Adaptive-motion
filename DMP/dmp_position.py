@@ -36,9 +36,6 @@ class PositionDMP():
             return self.Dp.dot(self.w.dot(psi) / psi.sum() * xj)
 
         # DMP system acceleration
-        # TODO: Implement the transformation system differential equation for the acceleration, given that you know the
-        # values of the following variables:
-        # self.alpha, self.beta, self.gp, self.p, self.dp, tau, x
         self.ddp = (self.alpha*(self.beta*(np.array(self.gp)-np.array(self.p))-self.dp*tau)+fp(x))/tau**2
         
 
@@ -100,6 +97,7 @@ class PositionDMP():
         x = self.cs.rollout(ts, tau)
 
         # Set up system of equations to solve for weights
+        # w from the paper is psi here
         def features(xj):
             psi = np.exp(-self.h * (xj - self.c)**2)
             return xj * psi / psi.sum()
@@ -111,6 +109,7 @@ class PositionDMP():
         f = np.stack(forcing(j) for j in range(len(ts)))
 
         # Least squares solution for Aw = f (for each column of f)
+        # Theta from the equation of dmp in the paper is self.w here
         self.w = np.linalg.lstsq(A, f, rcond=None)[0].T
 
         # Cache variables for later inspection

@@ -8,6 +8,7 @@ from mpl_toolkits.mplot3d import Axes3D
 from pyquaternion import Quaternion
 import math
 import quaternion
+from AdaptiveAdmittanceController import Ada_con
 
 import numpy as np # Scientific computing library for Python
  
@@ -32,6 +33,9 @@ def euler2quat(data):
   return data_q
 
 def axis2quat(data):
+      
+      # Convert angle axis to quaternion
+      
       data_q=np.empty((len(data),4))
       
       for i, d in enumerate(data):
@@ -39,9 +43,7 @@ def axis2quat(data):
         axis_normed = d/angle
         s = math.sin(angle/2)
         data_q[i]=[math.cos(angle/2), s*axis_normed[0], s*axis_normed[1], s*axis_normed[2]]
-        #data_q[i] = [Quaternion(axis=axis_normed,radians=angle)]
-      
-      
+        
       return data_q
 
 if __name__ == '__main__':
@@ -50,31 +52,33 @@ if __name__ == '__main__':
 
     tau = 0.002 * len(demo)
     t = np.arange(0, tau, 0.002)
+    #Split for position and rotation
     demo_p = demo[:, 0:3]
     demo_r = demo[:, 3:6]
-    
-    #print(len(demo_p))
-    for i in range(len(demo_r)-1):
-        if demo_r[i].dot(demo_r[i+1]) < 0:
-            demo_r[i+1] *= -1
+
+    # for i in range(len(demo_r)-1):
+    #     if demo_r[i].dot(demo_r[i+1]) < 0:
+    #         demo_r[i+1] *= -1
     
     data_q = axis2quat(demo_r)
  
-    #print(t)
-    #print(data_q)
-    #demo_q = euler2quat(demo_r)
-
-
-    N = 270 # TODO: Try changing the number of basis functions to see how it affects the output.
+  
+    N = 67 # TODO: Try changing the number of basis functions to see how it affects the output.
+    
+    #DMP model for position:
     dmpP = PositionDMP(n_bfs=N, alpha=48.0)
     dmpP.train(demo_p, t, tau)
     
-    dmpR = RotationDMP(n_bfs=N, alpha=48.0)
-    dmpR.train(data_q,t,tau)
+    #DMP model for rotation:
     
-    demo_quat_array = np.empty((len(data_q),4))
-    for n, d in enumerate(data_q):
-      demo_quat_array[n] = [d[0],d[1],d[2],d[3]]
+    # dmpR = RotationDMP(n_bfs=N, alpha=48.0)
+    # dmpR.train(data_q,t,tau)
+    
+    # demo_quat_array = np.empty((len(data_q),4))
+    # for n, d in enumerate(data_q):
+    #   demo_quat_array[n] = [d[0],d[1],d[2],d[3]]
+    
+    
     
 
     # TODO: Try setting a different starting point for the dmp:
@@ -92,10 +96,32 @@ if __name__ == '__main__':
     #tau=12
 
     # Generate an output trajectory from the trained DMP
-
+    # Position, velocity and acceleration:
     dmp_p, dmp_dp, dmp_ddp = dmpP.rollout(t, tau)
     
-    #dmp_q = [Quaternion([0,0,0,0])]
+    tr=28 #trials
+    
+    ac = Ada_con(dof = 1,tr=tr,t=t)
+    ac.iter_learn(pos=dmp_p,vel_p=dmp_dp)
+    fig, axs = plt.subplots(2)
+    fig.suptitle('Simulation')
+    axs[0].plot(t, dmp_p[:,0],label='DMP')
+    axs[1].plot(t, ac.pos_collect[tr - 1][0],label='System')
+    axs[0].legend()
+    axs[1].legend()
+    plt.show()
+    exit()
+    fig2 = plt.figure(2)
+    ax = plt.axes(projection='3d')
+    ax.plot3D(ac.pos_collect[tr-1, 0,:], ac.pos_collect[tr-1, 1,:], ac.pos_collect[tr-1, 2,:], label='System')
+    ax.plot3D(dmp_p[:, 0], dmp_p[:, 1], dmp_p[:, 2], label='DMP')
+    ax.set_xlabel('X')
+    ax.set_ylabel('Y')
+    ax.set_zlabel('Z')
+    ax.legend()
+    plt.show()
+    
+    
     
     #dmpR.q0=[0.015457728325892973, -0.9997245418426188, -0.01703957032809377, -0.004642425614064722]
     #dmpR.gq=[0.012457728325892973, 0.9397245418426188, 0.01703957032809377, 0.004642425614064722]
@@ -111,7 +137,38 @@ if __name__ == '__main__':
     # for d,dm in enumerate(dmp_q):
     #        dmp_q_list[d]=[dmp_q[d].w,dmp_q[d].x,dmp_q[d].y,dmp_q[d].z]
     
-   
+    
+    
+    # # Plot values for the simulation!
+    # fig1, axs = plt.subplots(6, 1, sharex=True)
+    # axs[0].plot(t, ac.pos_collect[0, 0,:], label='Demonstration')
+    # #axs[0].plot(t, dmp_p[:, 0], label='DMP')
+    # axs[0].set_xlabel('t (s)')
+    # axs[0].set_ylabel('q1')
+
+    # axs[1].plot(t, ac.pos_collect[0, 1,:], label='Demonstration')
+    # #axs[1].plot(t, dmp_p[:, 1], label='DMP')
+    # axs[1].set_xlabel('t (s)')
+    # axs[1].set_ylabel('q2')
+
+    # axs[2].plot(t, ac.pos_collect[0, 2,:], label='Demonstration')
+    # #axs[2].plot(t, dmp_p[:, 2], label='DMP')
+    # axs[2].set_xlabel('t (s)')
+    # axs[2].set_ylabel('q3')
+    # axs[3].plot(t, ac.pos_collect[0, 3,:], label='Demonstration')
+    # #axs[2].plot(t, dmp_p[:, 2], label='DMP')
+    # axs[3].set_xlabel('t (s)')
+    # axs[3].set_ylabel('q4')
+    # axs[4].plot(t, ac.pos_collect[0, 4,:], label='Demonstration')
+    # #axs[2].plot(t, dmp_p[:, 2], label='DMP')
+    # axs[4].set_xlabel('t (s)')
+    # axs[4].set_ylabel('q5')
+    # axs[5].plot(t, ac.pos_collect[0, 5,:], label='Demonstration')
+    # #axs[2].plot(t, dmp_p[:, 2], label='DMP')
+    # axs[5].set_xlabel('t (s)')
+    # axs[5].set_ylabel('q6')
+    # axs[5].legend()
+    # plt.show()
     #2D plot the DMP against the original demonstration
     fig1, axs = plt.subplots(3, 1, sharex=True)
     axs[0].plot(t, demo_p[:, 0], label='Demonstration')
@@ -139,7 +196,7 @@ if __name__ == '__main__':
     ax.set_ylabel('Y')
     ax.set_zlabel('Z')
     ax.legend()
-    plt.show()
+    #plt.show()
     
     # 2D plot the DMP against the original demonstration
     fig3, axsq = plt.subplots(4, 1, sharex=True)
@@ -165,13 +222,13 @@ if __name__ == '__main__':
     axsq[3].set_ylabel('Z (m)')
     axsq[3].legend()
 
-    # 3D plot the DMP against the original demonstration
-    fig4 = plt.figure(2)
-    axq = plt.axes(projection='3d')
-    axq.plot3D(data_q[:][0], data_q[:][1], data_q[:][2], label='Demonstration')
-    axq.plot3D(dmp_q_list[:][0], dmp_q_list[:][1], dmp_q_list[:][2], label='DMP')
-    axq.set_xlabel('X')
-    axq.set_ylabel('Y')
-    axq.set_zlabel('Z')
-    axq.legend()
-    plt.show()
+    # # 3D plot the DMP against the original demonstration
+    # fig4 = plt.figure(2)
+    # axq = plt.axes(projection='3d')
+    # axq.plot3D(data_q[:][0], data_q[:][1], data_q[:][2], label='Demonstration')
+    # axq.plot3D(dmp_q_list[:][0], dmp_q_list[:][1], dmp_q_list[:][2], label='DMP')
+    # axq.set_xlabel('X')
+    # axq.set_ylabel('Y')
+    # axq.set_zlabel('Z')
+    # axq.legend()
+    # plt.show()
