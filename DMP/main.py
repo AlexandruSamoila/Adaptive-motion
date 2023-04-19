@@ -99,18 +99,10 @@ if __name__ == '__main__':
     # Position, velocity and acceleration:
     dmp_p, dmp_dp, dmp_ddp = dmpP.rollout(t, tau)
     
-    tr=28 #trials
+    tr=22 #trials
     
-    ac = Ada_con(dof = 1,tr=tr,t=t)
+    ac = Ada_con(dof = 3,tr=tr,t=t)
     ac.iter_learn(pos=dmp_p,vel_p=dmp_dp)
-    fig, axs = plt.subplots(2)
-    fig.suptitle('Simulation')
-    axs[0].plot(t, dmp_p[:,0],label='DMP')
-    axs[1].plot(t, ac.pos_collect[tr - 1][0],label='System')
-    axs[0].legend()
-    axs[1].legend()
-    plt.show()
-    exit()
     fig2 = plt.figure(2)
     ax = plt.axes(projection='3d')
     ax.plot3D(ac.pos_collect[tr-1, 0,:], ac.pos_collect[tr-1, 1,:], ac.pos_collect[tr-1, 2,:], label='System')
@@ -120,6 +112,17 @@ if __name__ == '__main__':
     ax.set_zlabel('Z')
     ax.legend()
     plt.show()
+    exit()
+    
+    fig, axs = plt.subplots(2)
+    fig.suptitle('Simulation')
+    axs[0].plot(t, dmp_p[:,2],label='DMP')
+    axs[1].plot(t, ac.pos_collect[tr - 1][0],label='System')
+    axs[0].legend()
+    axs[1].legend()
+    plt.show()
+   
+    
     
     
     
