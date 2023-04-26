@@ -71,11 +71,11 @@ class Ada_con():
         self.v = np.zeros(self.dof)
 
         # Adaptation rates for stiffness and damping
-        self.qs = 3.2 # Value chosen arbitrarily
-        self.qd = 3.2 # Value chosen arbitrarily
+        self.qs = 15.2 # Value chosen arbitrarily
+        self.qd = 15.2 # Value chosen arbitrarily
 
         # Adaptation rate for feedforward term
-        self.qv = 3.3 # Value chosen arbitrarily
+        self.qv = 15.3 # Value chosen arbitrarily
 
         # Tracking error coefficient
         self.gamma = 3 # Value chosen arbitrarily
@@ -121,10 +121,10 @@ class Ada_con():
         '''
         import numpy as np
         
-        self.spring_force = self.spring * self.pos
-        self.damper_force = self.damper * self.vel
+        self.spring_force = self.ks * self.pos
+        self.damper_force = self.kd * self.vel
         self.noise = np.random.normal(0, 0, self.dof) # Simulate sensor noise
-        self.acceleration = -(self.spring_force + self.damper_force) / self.mass + self.noise + self.tau
+        self.acceleration = (self.tau - self.spring_force - self.damper_force) / self.mass + self.noise 
         #self.acceleration = -(self.spring_force + self.damper_force) / self.mass + self.noise
         # + or - self.tau in the equation above?
 
@@ -143,6 +143,9 @@ class Ada_con():
         
     def q_to_eul(self, q, dq, q_des, dq_des):
         '''
+        
+        TODO:
+        
             Convert a quaternion into euler angles
             and quaternion rate to euler angle rate (unsure about the rates)
 
@@ -171,20 +174,14 @@ class Ada_con():
             self.vel_des[i + 3] = self.drot_des[i]
             self.pos[i + 3] = self.rot[i]
             self.vel[i + 3] = self.drot[i]
-
-    def iter_learn(self, pos, vel_p):
-        '''
-            Update gains iteratively through trials
-        '''
-
-
-        self.counter = 0
-        
-        #Find g
-        self.alpha=44
+            
+    def radialBasis(self,alpha, n_bfs):
+          
+        self.alpha = alpha
         
         #No. of basis functions
-        self.n_bfs=6
+        self.n_bfs=n_bfs
+        
         self.pv = PhaseVariable()
         
         # Centres of the Gaussian basis functions
@@ -202,13 +199,27 @@ class Ada_con():
             w=np.exp(-0.5*self.h * (xj - self.c)**2)
             return w/w.sum()
         
-        g = np.stack(features(xj) for xj in s)
+        g = np.stack([features(xj) for xj in s])
+        
+        return g
+    
+    def iter_learn(self, pos, vel_p, ks, kd, v, tau1):
+        '''
+            Update gains iteratively through trials
+        '''
+        
+        self.counter = 0
+        
+        alpha = 44
+        n_bfs = 8
+        
+        g = self.radialBasis(alpha=alpha, n_bfs=n_bfs)
         
         for i in range(self.nt):
             
             # Reset velocity and position for desired values for simulation
-            self.pos_old = pos[0, 0],pos[0, 1],pos[0, 2]
-            self.vel_old = np.zeros(self.dof)
+            self.pos_old[0],self.pos_old[1],self.pos_old[2] = 0,0,0
+            self.vel_old[0],self.vel_old[1],self.vel_old[2] = 0,0,0
 
             # Step for simulation - one full cycle for cosine / sine per trial
             self.rad = 2 * np.pi / self.samples
@@ -216,50 +227,27 @@ class Ada_con():
             # Set initial values for simple simulation of mass-spring-damper system
             self.pos[0],self.pos[1],self.pos[2] = pos[0, 0],pos[0, 1],pos[0, 2]
             #self.pos = np.zeros(self.dof)
-            self.vel = np.zeros(self.dof)
+            self.vel[0],self.vel[1],self.vel[2] = vel_p[0, 0],vel_p[0, 1],vel_p[0, 2]
             #self.vel = np.array([1, 1, 1, 1, 1, 1])
-            self.mass = 1.2
-            self.spring = 5
-            self.damper = 2*math.sqrt(self.mass*(self.spring+1))
+            
+            
+            """
+                TODO: Try modify this parameters to simulate divergent force.
+            """
+            self.mass = 3
+            self.spring = 15
+            self.damper = 2*math.sqrt(self.mass*(self.spring+300))
 
             for j in range(self.samples):
 
                 self.counter = self.counter + 1
 
                 # Get position and velocity of system for simulation
+                    
                 self.mass_spring_damper()
-
-                # Generate some motion for self.pos_des and self.vel_des!
-                # self.pos_des = np.cos(self.rad * j)
-                '''
-                self.pos_des[0] = np.cos(self.rad * j)
-                self.pos_des[1] = np.cos(self.rad * j)
-                self.pos_des[2] = np.cos(self.rad * j)
-                self.pos_des[3] = np.cos(self.rad * j)
-                self.pos_des[4] = np.cos(self.rad * j)
-                self.pos_des[5] = np.cos(self.rad * j)
-                '''
-                # self.vel_des = (self.pos_des - self.pos_old) / self.dt
-
 
                 self.pos_des[0],self.pos_des[1],self.pos_des[2] = pos[j, 0],pos[j, 1],pos[j, 2] 
                 self.vel_des[0],self.vel_des[1],self.vel_des[2] = vel_p[j, 0],vel_p[j, 1],vel_p[j, 2]
-                #self.vel_des[0],self.vel_des[1],self.vel_des[2] = (self.pos_des[0] - self.pos_old[0]) / self.dt,(self.pos_des[1] - self.pos_old[1]) / self.dt,(self.pos_des[2] - self.pos_old[2]) / self.dt 
-                
-                # self.pos_des=pos[j, 2]
-                # self.vel_des = (self.pos_des - self.pos_old) / self.dt
-                
-                #self.vel_des=vel_p[j, 0]
-                # Apparently a huge desired velocity for the first sample
-                # --> very huge velocity error --> program terminates
-                # Setting the desired velocity at sample 0 to 0 to avoid this
-                # if j == 0:
-                #     self.vel_des = np.zeros(self.dof) #But WHY GODDAMNIT! Ask supervisor
-
-                #g = 10 # Need from DMP!
-
-                # Get new actual position and velocity!
-                # Need DMP output
 
                 # Get position, velocity, and tracking errors
                 self.get_pos_diff()
@@ -268,21 +256,23 @@ class Ada_con():
 
                 # Update gains
                 if i == 0:
-                    self.ks = self.qs * self.tra_diff * self.pos_diff * g[j,self.n_bfs-self.dof:self.n_bfs]
-                    self.kd = self.qd * self.tra_diff * self.vel_diff * g[j,self.n_bfs-self.dof:self.n_bfs]
-                    self.v = self.qv * self.tra_diff * g[j,self.n_bfs-self.dof:self.n_bfs]
+                    self.ks = ks[j,:]
+                    self.kd = kd[j,:]
+                    self.v = v[j,:]
                     #print("Spring: ", self.ks)
                     #print("Damper: ", self.kd)
                     #print("Debugging: ", self.vel_diff)
+                    self.tau=tau1[j,:]
                 else:
                     self.ks = self.ks_collect[i - 1][:, j] + self.qs * self.tra_err_collect[i - 1][:, j] * self.pos_err_collect[i - 1][:, j] * g[j,self.n_bfs-self.dof:self.n_bfs]
                     self.kd = self.kd_collect[i - 1][:, j] + self.qd * self.tra_err_collect[i - 1][:, j] * self.vel_err_collect[i - 1][:, j] * g[j,self.n_bfs-self.dof:self.n_bfs]
                     self.v = self.v_collect[i - 1][:, j] + self.qv * self.tra_err_collect[i - 1][:, j] * g[j,self.n_bfs-self.dof:self.n_bfs]
-                    #print("New spring: ", self.ks)
-                    #print("New damper: ", self.kd)
+                    # print("New spring: ", self.ks)
+                    # print("New damper: ", self.kd)
                 
-                # Combine gains into torque - check paper for correct formula!
-                self.tau = -(self.ks * self.pos_diff + self.kd * self.vel_diff) - self.v
+                    # Combine gains into torque - check paper for correct formula!
+                    self.tau = -(self.spring * self.pos_diff + self.damper * self.vel_diff) - self.v
+                
                 #self.tau = -(self.ks * self.pos_diff + self.kd * self.vel_diff)
                 # Tau works "fine" with only spring gain
                 #self.tau = -(self.ks * self.pos_diff)
@@ -306,4 +296,5 @@ class Ada_con():
                     #self.vel_des_collect[i][k][j] = self.vel_des[k]
                 
                 self.pos_old = self.pos_des
-
+    
+    

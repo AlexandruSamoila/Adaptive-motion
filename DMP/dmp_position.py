@@ -96,6 +96,7 @@ class PositionDMP():
         # Integrate canonical system
         x = self.cs.rollout(ts, tau)
 
+
         # Set up system of equations to solve for weights
         # w from the paper is psi here
         def features(xj):
