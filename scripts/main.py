@@ -19,7 +19,8 @@ from utils.utils import *
 
 
 if __name__ == '__main__':
-
+    
+    # Connection with the robot
     rtde_frequency = 500.0
     dt = 1.0 / rtde_frequency  # 2ms
     flags = RTDEControl.FLAG_VERBOSE | RTDEControl.FLAG_UPLOAD_SCRIPT
